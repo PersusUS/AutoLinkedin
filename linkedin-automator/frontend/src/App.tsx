@@ -1,9 +1,17 @@
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import Interview from './pages/Interview';
+
 function App() {
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <h1 className="text-3xl font-bold text-gray-900">LinkedIn Post Automator</h1>
-    </div>
-  )
+    <BrowserRouter>
+      <div className="min-h-screen bg-gray-50">
+        <Routes>
+          <Route path="/" element={<Interview />} />
+          <Route path="/review/:transcriptId" element={<div>Review (M4)</div>} />
+        </Routes>
+      </div>
+    </BrowserRouter>
+  );
 }
 
-export default App
+export default App;
