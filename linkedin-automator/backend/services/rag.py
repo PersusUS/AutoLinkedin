@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, timezone
 
 from google import genai
+from google.genai import types
 from supabase import create_client, Client
 
 from config import settings
@@ -30,13 +31,14 @@ def _get_supabase_client() -> Client:
 
 
 def generate_embedding(text: str) -> list[float]:
-    """Generate a 768-dimension embedding using Gemini text-embedding-004."""
+    """Generate a 768-dimension embedding using gemini-embedding-001."""
     client = _get_gemini_client()
     response = client.models.embed_content(
-        model="text-embedding-004",
-        content={"parts": [{"text": text}]},
+        model="gemini-embedding-001",
+        contents=text,
+        config=types.EmbedContentConfig(output_dimensionality=768),
     )
-    return response.embedding.values
+    return response.embeddings[0].values
 
 
 def save_transcript(raw_text: str, duration_seconds: int) -> str:
