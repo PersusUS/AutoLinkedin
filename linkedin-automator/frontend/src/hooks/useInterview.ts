@@ -58,13 +58,29 @@ export function useInterview(): UseInterviewReturn {
 
         case 'user_transcript':
           if (msg.data) {
-            setTranscript((prev) => [...prev, { role: 'user', text: msg.data as string }]);
+            setTranscript((prev) => {
+              const str = msg.data as string;
+              if (prev.length > 0 && prev[prev.length - 1].role === 'user') {
+                const updated = { ...prev[prev.length - 1] };
+                updated.text = updated.text + str;
+                return [...prev.slice(0, -1), updated];
+              }
+              return [...prev, { role: 'user', text: str }];
+            });
           }
           break;
 
         case 'ai_transcript':
           if (msg.data) {
-            setTranscript((prev) => [...prev, { role: 'ai', text: msg.data as string }]);
+            setTranscript((prev) => {
+              const str = msg.data as string;
+              if (prev.length > 0 && prev[prev.length - 1].role === 'ai') {
+                const updated = { ...prev[prev.length - 1] };
+                updated.text = updated.text + str;
+                return [...prev.slice(0, -1), updated];
+              }
+              return [...prev, { role: 'ai', text: str }];
+            });
           }
           break;
 
@@ -78,6 +94,7 @@ export function useInterview(): UseInterviewReturn {
           break;
 
         case 'error':
+          stopRecording();
           setStatus('idle');
           break;
       }

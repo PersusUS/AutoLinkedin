@@ -38,7 +38,9 @@ def generate_embedding(text: str) -> list[float]:
         contents=text,
         config=types.EmbedContentConfig(output_dimensionality=768),
     )
-    return response.embeddings[0].values
+    if not response.embeddings or not response.embeddings[0].values:
+        return []
+    return list(response.embeddings[0].values)
 
 
 def save_transcript(raw_text: str, duration_seconds: int) -> str:

@@ -114,7 +114,7 @@ async def generate_posts(transcript_id: str, transcript_text: str) -> list[dict]
 
     response = await client.aio.models.generate_content(
         model=settings.post_generator_model,
-        contents=[{"role": "user", "parts": [{"text": user_prompt}]}],
+        contents=user_prompt,
         config={
             "temperature": 0.7,
             "max_output_tokens": 16000,
@@ -123,6 +123,9 @@ async def generate_posts(transcript_id: str, transcript_text: str) -> list[dict]
             "system_instruction": SYSTEM_PROMPT,
         },
     )
+
+    if not response.text:
+        return []
 
     data = json.loads(response.text)
     posts_list: list[dict] = data["posts"]

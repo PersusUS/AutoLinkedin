@@ -33,6 +33,7 @@ export default function Review() {
       if (result.length > 0) {
         setPosts(result);
         setLoading(false);
+        clearInterval(id);
       }
     };
 
@@ -43,11 +44,6 @@ export default function Review() {
       clearInterval(id);
     };
   }, [transcriptId]);
-
-  // Stop polling once we have posts
-  useEffect(() => {
-    if (posts.length > 0) setLoading(false);
-  }, [posts]);
 
   if (loading) {
     return (

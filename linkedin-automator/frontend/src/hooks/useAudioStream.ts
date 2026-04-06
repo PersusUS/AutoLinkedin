@@ -61,6 +61,7 @@ export function useAudioStream({ onAudioChunk }: UseAudioStreamOptions): UseAudi
   const contextRef = useRef<AudioContext | null>(null);
   const workletRef = useRef<AudioWorkletNode | null>(null);
   const playContextRef = useRef<AudioContext | null>(null);
+  const nextStartTimeRef = useRef<number>(0);
 
   const startRecording = useCallback(async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -103,7 +104,8 @@ export function useAudioStream({ onAudioChunk }: UseAudioStreamOptions): UseAudi
 
   const playAudio = useCallback((base64: string) => {
     if (!playContextRef.current || playContextRef.current.state === 'closed') {
-      playContextRef.current = new AudioContext({ sampleRate: OUTPUT_SAMPLE_RATE });
+      playContextRef.current = new window.AudioContext({ sampleRate: OUTPUT_SAMPLE_RATE });
+      nextStartTimeRef.current = playContextRef.current.currentTime;
     }
     const ctx = playContextRef.current;
 
@@ -125,7 +127,14 @@ export function useAudioStream({ onAudioChunk }: UseAudioStreamOptions): UseAudi
     const source = ctx.createBufferSource();
     source.buffer = buffer;
     source.connect(ctx.destination);
-    source.start();
+    
+    const currentTime = ctx.currentTime;
+    if (nextStartTimeRef.current < currentTime) {
+      nextStartTimeRef.current = currentTime;
+    }
+    
+    source.start(nextStartTimeRef.current);
+    nextStartTimeRef.current += buffer.duration;
   }, []);
 
   return { isRecording, startRecording, stopRecording, playAudio };

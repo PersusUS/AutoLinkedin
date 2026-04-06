@@ -41,18 +41,9 @@ async def interview_session(ws: WebSocket) -> None:
                     stop_event.set()
         except WebSocketDisconnect:
             stop_event.set()
-
-    async def gemini_to_client() -> None:
-        """Read messages from Gemini and forward to the browser WebSocket."""
-        try:
-            async for msg in session.receive():
-                if stop_event.is_set():
-                    break
-                await ws.send_json(msg)
         except Exception as e:
-            if not stop_event.is_set():
-                logger.error("Gemini receive error: %s", e)
-                stop_event.set()
+            logger.error(f"Error in client_to_gemini: {e}", exc_info=True)
+            stop_event.set()
 
     task_c2g = asyncio.create_task(client_to_gemini())
     task_g2c = asyncio.create_task(gemini_to_client())

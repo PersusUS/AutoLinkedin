@@ -2,6 +2,8 @@ import base64
 import logging
 from collections.abc import AsyncIterator
 
+from typing import Any
+
 from google import genai
 from google.genai import types
 
@@ -29,15 +31,18 @@ class GeminiLiveSession:
     def __init__(self) -> None:
         self._client = genai.Client(api_key=settings.gemini_api_key)
         self._session: genai.live.AsyncSession | None = None
-        self._transcript_parts: list[str] = []
+        self._cm: Any | None = None
+        self._transcript_parts: list[dict[str, str]] = []
 
     async def connect(self) -> None:
         """Open the Gemini Live session."""
         config = types.LiveConnectConfig(
-            response_modalities=["AUDIO", "TEXT"],
-            system_instruction=INTERVIEWER_SYSTEM_INSTRUCTION,
-            input_audio_transcription={},
-            output_audio_transcription={},
+            response_modalities=["AUDIO"], # type: ignore
+            system_instruction=types.Content(
+                parts=[types.Part.from_text(text=INTERVIEWER_SYSTEM_INSTRUCTION)]
+            ) if hasattr(types, "Content") else INTERVIEWER_SYSTEM_INSTRUCTION, # type: ignore
+            input_audio_transcription=types.PrebuiltVoiceConfig() if hasattr(types, "PrebuiltVoiceConfig") else None, # type: ignore
+            output_audio_transcription=types.PrebuiltVoiceConfig() if hasattr(types, "PrebuiltVoiceConfig") else None, # type: ignore
             speech_config=types.SpeechConfig(
                 voice_config=types.VoiceConfig(
                     prebuilt_voice_config=types.PrebuiltVoiceConfig(
@@ -46,10 +51,11 @@ class GeminiLiveSession:
                 )
             ),
         )
-        self._session = await self._client.aio.live.connect(
+        self._cm = self._client.aio.live.connect(
             model=MODEL,
             config=config,
         )
+        self._session = await self._cm.__aenter__()
         logger.info("Gemini Live session connected")
 
     async def send_audio(self, audio_b64: str) -> None:
@@ -84,16 +90,19 @@ class GeminiLiveSession:
             # Input transcription (what the user said)
             if sc.input_transcription and sc.input_transcription.text:
                 text = sc.input_transcription.text
-                self._transcript_parts.append(f"Usuario: {text}")
+                if self._transcript_parts and self._transcript_parts[-1]["role"] == "Usuario":
+                    self._transcript_parts[-1]["text"] += text
+                else:
+                    self._transcript_parts.append({"role": "Usuario", "text": text})
                 yield {"type": "user_transcript", "data": text}
 
             # Output transcription (what the AI said)
-            if sc.output_transcription and sc.output_transcription.text:
+            if sc.output_transcription and sc.output_transcription.text:        
                 text = sc.output_transcription.text
-                self._transcript_parts.append(f"Entrevistador: {text}")
-                yield {"type": "ai_transcript", "data": text}
-
-            # Audio and text from model turn
+                if self._transcript_parts and self._transcript_parts[-1]["role"] == "Entrevistador":
+                    self._transcript_parts[-1]["text"] += text
+                else:
+                    self._transcript_parts.append({"role": "Entrevistador", "text": text})
             if sc.model_turn and sc.model_turn.parts:
                 for part in sc.model_turn.parts:
                     if part.inline_data and part.inline_data.data:
@@ -108,11 +117,12 @@ class GeminiLiveSession:
 
     def get_full_transcript(self) -> str:
         """Return the accumulated transcript."""
-        return "\n".join(self._transcript_parts)
+        return "\n".join(f'{part["role"]}: {part["text"]}' for part in self._transcript_parts)
 
     async def disconnect(self) -> None:
         """Close the Gemini Live session."""
-        if self._session is not None:
-            await self._session.close()
+        if self._cm is not None:
+            await self._cm.__aexit__(None, None, None)
             self._session = None
+            self._cm = None
             logger.info("Gemini Live session disconnected")
